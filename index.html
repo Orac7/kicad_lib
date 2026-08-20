@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Component Library</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --bg:#0f1117; --panel:#171a22; --panel-2:#1e222c; --line:#2a2f3a;
+    --ink:#e7e9ee; --ink-dim:#9aa1b0; --ink-faint:#626a7a;
+    --accent:#5ed6a4; --accent-dim:#2c7c5c; --warn:#e0a34e;
+    --tag:#7aa2f7; --tag-dim:#31456e;
+    --mono:"SF Mono","JetBrains Mono","Fira Code",ui-monospace,Menlo,Consolas,monospace;
+    --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1100px;margin:0 auto;padding:32px 24px 80px}
+
+  header{margin-bottom:28px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0 0 8px}
+  h1{font-size:30px;font-weight:650;letter-spacing:-.02em;margin:0 0 6px}
+  .sub{color:var(--ink-dim);margin:0;font-size:14px}
+
+  .controls{position:sticky;top:0;z-index:5;background:var(--bg);padding:16px 0 14px;margin-bottom:4px;border-bottom:1px solid var(--line)}
+  .search{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 14px;transition:border-color .15s}
+  .search:focus-within{border-color:var(--accent-dim)}
+  .search svg{width:17px;height:17px;color:var(--ink-faint);flex:none}
+  .search input{flex:1;background:none;border:none;outline:none;color:var(--ink);font-size:15px;font-family:var(--sans)}
+  .search input::placeholder{color:var(--ink-faint)}
+  kbd{font-family:var(--mono);font-size:11px;color:var(--ink-faint);border:1px solid var(--line);border-radius:5px;padding:2px 6px;background:var(--panel-2)}
+
+  .filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+  .filters .label{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-right:2px}
+  .chip{font-family:var(--mono);font-size:12px;color:var(--ink-dim);background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:5px 12px;cursor:pointer;transition:all .12s}
+  .chip:hover{border-color:var(--accent-dim);color:var(--ink)}
+  .chip[aria-pressed="true"]{background:var(--accent-dim);border-color:var(--accent);color:#eafff5}
+  .toggle{margin-left:auto;display:flex;gap:8px}
+
+  /* Tag filter bar */
+  .tagbar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:11px}
+  .tagbar .label{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-right:2px}
+  .tagchip{font-family:var(--mono);font-size:12px;color:var(--tag);background:var(--panel);border:1px solid var(--tag-dim);border-radius:20px;padding:4px 11px;cursor:pointer;transition:all .12s;display:inline-flex;align-items:center;gap:6px}
+  .tagchip:hover{border-color:var(--tag)}
+  .tagchip .n{color:var(--ink-faint);font-size:11px}
+  .tagchip[aria-pressed="true"]{background:var(--tag-dim);border-color:var(--tag);color:#eaf1ff}
+  .tagchip[aria-pressed="true"] .n{color:#c3d4f7}
+  .tag-clear{font-family:var(--mono);font-size:11px;color:var(--ink-faint);background:none;border:none;cursor:pointer;text-decoration:underline;padding:4px}
+  .tag-clear:hover{color:var(--ink-dim)}
+
+  .count{font-family:var(--mono);font-size:12px;color:var(--ink-faint);margin:18px 2px 12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .count b{color:var(--ink-dim);font-weight:500}
+  .export{font-family:var(--mono);font-size:11px;color:var(--accent);background:none;border:1px solid var(--accent-dim);border-radius:6px;padding:4px 10px;cursor:pointer;transition:all .12s}
+  .export:hover{background:var(--accent-dim);color:#eafff5}
+  .export:disabled{opacity:.4;cursor:default;border-color:var(--line);color:var(--ink-faint)}
+  .dirty-dot{color:var(--warn)}
+
+  .grid{display:grid;gap:10px}
+  .libgroup{display:grid;gap:10px}
+  .libgroup+.libgroup{margin-top:22px}
+  .libhead{display:flex;align-items:center;gap:10px;padding:2px 2px 8px;border-bottom:1px solid var(--line);margin-bottom:2px}
+  .libname{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+  .libcount{font-family:var(--mono);font-size:11px;color:var(--ink-faint);background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:1px 9px}
+
+  /* ---- Simple (compact) view ---- */
+  .slist{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .libgroup.simple{display:grid;gap:0}
+  .libgroup.simple .srow{border-left:1px solid var(--line);border-right:1px solid var(--line)}
+  .libgroup.simple .srow:last-child{border-bottom:1px solid var(--line);border-radius:0 0 10px 10px}
+  .srow{display:flex;align-items:center;gap:10px;padding:5px 12px;font-size:13px;line-height:1.35;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .slist .srow:last-child{border-bottom:none}
+  .srow:hover{background:var(--panel)}
+  .srow.obsolete{opacity:.6}
+  .sdot{width:6px;height:6px;border-radius:50%;background:var(--warn);flex:none}
+  .sdot.blank{background:transparent}
+  .sname{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--ink);flex:none}
+  .slib{font-family:var(--mono);font-size:10px;color:var(--accent);border:1px solid var(--accent-dim);border-radius:4px;padding:0 5px;flex:none}
+  .sfp{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+  .sds{font-family:var(--mono);font-size:11px;display:flex;gap:5px;align-items:center;flex:none}
+  .sds a{color:var(--accent);text-decoration:none}
+  .sds a:hover{text-decoration:underline}
+  .sds .sep{color:var(--ink-faint)}
+  .sds .missing{color:var(--ink-faint)}
+  .srow .sedit{margin-left:0;font-size:10px;padding:2px 8px;opacity:0;transition:opacity .1s}
+  .srow:hover .sedit,.srow.editing .sedit{opacity:1}
+  .srow .editform{flex-basis:100%;margin-top:6px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;transition:border-color .12s}
+  .card:hover{border-color:#363c49}
+  .card.obsolete{opacity:.68}
+  .card-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .card h3{font-family:var(--mono);font-size:15px;font-weight:600;margin:0;color:var(--ink);letter-spacing:-.01em}
+  .lib{font-family:var(--mono);font-size:11px;color:var(--accent);border:1px solid var(--accent-dim);border-radius:5px;padding:1px 7px}
+  .badge-obs{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--warn);border:1px solid var(--warn);border-radius:5px;padding:1px 6px}
+  .desc{color:var(--ink-dim);margin:7px 0 0;font-size:14px}
+
+  /* Tags on a card */
+  .cardtags{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px;align-items:center}
+  .ctag{font-family:var(--mono);font-size:11px;color:var(--tag);background:var(--tag-dim);border:1px solid transparent;border-radius:14px;padding:2px 4px 2px 9px;display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+  .ctag:hover{border-color:var(--tag)}
+  .ctag .x{color:#c3d4f7;font-size:13px;line-height:1;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(0,0,0,.25)}
+  .ctag .x:hover{background:var(--warn);color:#1a1206}
+  .addtag{font-family:var(--mono);font-size:11px;color:var(--ink-faint);background:none;border:1px dashed var(--line);border-radius:14px;padding:2px 9px;cursor:pointer}
+  .addtag:hover{border-color:var(--tag);color:var(--tag)}
+  .taginput{font-family:var(--mono);font-size:12px;background:var(--panel-2);border:1px solid var(--tag-dim);border-radius:14px;padding:2px 9px;color:var(--ink);outline:none;width:120px}
+
+  .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px 20px;margin-top:13px;padding-top:13px;border-top:1px solid var(--line)}
+  .meta .row{display:flex;gap:8px;font-size:13px;min-width:0}
+  .meta .k{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);flex:none;width:74px;padding-top:1px}
+  .meta .v{color:var(--ink);font-family:var(--mono);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .meta .v.missing{color:var(--ink-faint);font-style:italic}
+  .meta a{color:var(--accent);text-decoration:none}
+  .meta a:hover{text-decoration:underline}
+  .meta .sep{color:var(--ink-faint);margin:0 2px}
+
+  /* Edit button + inline form */
+  .edit-btn{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-dim);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:3px 11px;cursor:pointer;transition:all .12s}
+  .edit-btn:hover{border-color:var(--accent-dim);color:var(--ink)}
+  .editform{margin-top:13px;padding-top:13px;border-top:1px dashed var(--line)}
+  .ef-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:11px}
+  .ef{display:flex;flex-direction:column;gap:4px}
+  .ef span{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint)}
+  .ef input,.ef select{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:7px 9px;color:var(--ink);font-family:var(--mono);font-size:13px;outline:none}
+  .ef input:focus,.ef select:focus{border-color:var(--accent-dim)}
+  .ef-actions{display:flex;align-items:center;gap:9px;margin-top:12px}
+  .ef-save{font-family:var(--mono);font-size:12px;color:#eafff5;background:var(--accent-dim);border:1px solid var(--accent);border-radius:7px;padding:6px 15px;cursor:pointer}
+  .ef-save:hover{background:var(--accent);color:#0f1117}
+  .ef-cancel{font-family:var(--mono);font-size:12px;color:var(--ink-dim);background:none;border:1px solid var(--line);border-radius:7px;padding:6px 13px;cursor:pointer}
+  .ef-cancel:hover{border-color:var(--ink-faint);color:var(--ink)}
+  .ef-hint{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-left:4px}
+
+  .empty{text-align:center;padding:60px 20px;color:var(--ink-faint);font-family:var(--mono);font-size:13px}
+  mark{background:var(--accent-dim);color:#eafff5;border-radius:2px;padding:0 1px}
+
+  .banner{background:var(--panel-2);border:1px solid var(--tag-dim);border-radius:8px;padding:9px 13px;margin-top:12px;font-size:12.5px;color:var(--ink-dim);display:none}
+  .banner.show{display:block}
+  .banner b{color:var(--ink)}
+
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink-faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--accent-dim);color:#eafff5;font-family:var(--mono);font-size:12.5px;padding:9px 16px;border-radius:8px;border:1px solid var(--accent);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:20}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.err{background:#4a1e1e;border-color:var(--warn);color:#ffd9b0}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">KiCad Symbol Library</p>
+    <h1>Component Library</h1>
+    <p class="sub">Search by name, description, keyword, or footprint. Tag components and filter by tag.</p>
+  </header>
+
+  <div class="controls">
+    <label class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="q" type="text" placeholder="Search components…  (part number, package, or keyword)" autocomplete="off" autofocus>
+      <kbd>/</kbd>
+    </label>
+
+    <div class="filters">
+      <span class="label">Library</span>
+      <span id="libChips"></span>
+      <div class="toggle">
+        <button class="chip" id="tglSimple" aria-pressed="false">Simple view</button>
+        <button class="chip" id="tglGroup" aria-pressed="false">Group by library</button>
+        <button class="chip" id="tglMissing" aria-pressed="false">Missing metadata</button>
+        <button class="chip" id="tglObsolete" aria-pressed="false">Hide obsolete</button>
+      </div>
+    </div>
+
+    <div class="tagbar" id="tagbar">
+      <span class="label">Tags</span>
+      <span id="tagChips"></span>
+      <button class="tag-clear" id="tagClear" style="display:none">clear</button>
+    </div>
+  </div>
+
+  <div class="banner" id="banner"></div>
+
+  <p class="count" id="count"></p>
+  <div class="grid" id="results"></div>
+
+  <footer>
+    <span id="stamp">Loading…</span>
+    <span>Generated from klib_contents.csv</span>
+  </footer>
+</div>
+
+<script>
+const CSV_URL = 'klib_contents.csv';
+const STORE_KEY = 'klib_field_overrides_v2';
+const EDITABLE = ['vendor','order_code','obsolete','datasheet_file'];  // tags handled separately
+let ALL = [], fuse = null, LOCAL_SHEETS = new Set();
+const state = { q:'', lib:null, tags:new Set(), tagMode:'and', onlyMissing:false, hideObsolete:false, groupBy:false, simple:false };
+
+// ---- local persistence (works on GitHub Pages; degrades to memory if blocked)
+let memStore = {};
+const store = {
+  get() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
+    catch { return memStore; }
+  },
+  set(obj) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(obj)); }
+    catch { memStore = obj; }
+  }
+};
+// overrides: { key: { tags:["i2c"], obsolete:"yes", vendor:"...", ... } }
+// Only present fields are overridden; absent fields fall through to the CSV.
+let overrides = {};
+let dirty = false;
+let LOCAL = false;    // true when served by serve_local.py (writes to disk)
+
+async function detectLocal(){
+  try{
+    const r = await fetch('/__local__', {cache:'no-store'});
+    if(r.ok){
+      const j = await r.json();
+      LOCAL = j.local === true;
+      LOCAL_SHEETS = new Set(j.datasheets || []);
+    }
+  }catch{ LOCAL = false; }
+}
+// Push the full effective field set to disk (local mode only).
+async function saveToDisk(){
+  const fields = {};
+  ALL.forEach(c => {
+    fields[c.key] = {
+      tags: tagsOf(c).join(';'),
+      vendor: valOf(c,'vendor'),
+      order_code: valOf(c,'order_code'),
+      obsolete: valOf(c,'obsolete'),
+      datasheet_file: valOf(c,'datasheet_file'),
+    };
+  });
+  const r = await fetch('/save', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({fields})
+  });
+  if(!r.ok) throw new Error('save failed: ' + r.status);
+  return (await r.json()).changed;
+}
+
+const el = id => document.getElementById(id);
+const isMissing = c => !c.datasheet && !valOf(c,'datasheet_file') || !valOf(c,'vendor') || !valOf(c,'order_code');
+const truthy = v => /^(y|yes|true|1|x)$/i.test((v||'').trim());
+const parseTags = s => (s||'').split(';').map(t=>t.trim()).filter(Boolean);
+const normTag = t => t.trim().toLowerCase().replace(/\s+/g,' ');
+
+// effective value of a plain field = override if present, else CSV value
+function valOf(c, field){
+  const o = overrides[c.key];
+  return (o && o[field] !== undefined) ? o[field] : (c[field] || '');
+}
+// effective tags for a component = override if present, else CSV value
+function tagsOf(c){
+  const o = overrides[c.key];
+  return (o && o.tags !== undefined) ? parseTags(o.tags) : parseTags(c.tags);
+}
+// record an override, dropping it if the value equals the CSV again
+function setOverride(key, field, value){
+  const c = ALL.find(x=>x.key===key);
+  const o = overrides[key] || (overrides[key] = {});
+  if(c && (c[field]||'') === value) delete o[field];
+  else o[field] = value;
+  if(Object.keys(o).length === 0) delete overrides[key];
+}
+
+function esc(s){return (s||'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
+function highlight(t,q){t=esc(t);if(!q)return t;const x=q.trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&');if(!x)return t;return t.replace(new RegExp(`(${x})`,'ig'),'<mark>$1</mark>')}
+
+
+async function load(){
+  await detectLocal();
+  overrides = LOCAL ? {} : store.get();   // in local mode, disk is the source of truth
+  try{
+    const res = await fetch(CSV_URL + '?v=' + Date.now());
+    if(!res.ok) throw new Error(res.status+' '+res.statusText);
+    const parsed = Papa.parse(await res.text(), {header:true, skipEmptyLines:true});
+    ALL = parsed.data.filter(r=>r.name);
+    fuse = new Fuse(ALL, {
+      includeScore:false, threshold:0.38, ignoreLocation:true,
+      keys:[
+        {name:'name',weight:3},{name:'keywords',weight:2},{name:'description',weight:2},
+        {name:'footprint',weight:1},{name:'order_code',weight:1},{name:'vendor',weight:1},
+        {name:'tags',weight:2},
+      ],
+    });
+    buildLibChips();
+    reconcileBanner();
+    el('stamp').textContent = ALL.length + ' components loaded';
+    render();
+  }catch(e){
+    el('results').innerHTML = `<div class="empty">Couldn't load klib_contents.csv<br><br>${esc(e.message)}</div>`;
+    el('stamp').textContent = 'Load failed';
+  }
+}
+
+// tell the user if their local edits differ from the committed CSV
+function reconcileBanner(){
+  const b = el('banner');
+  if(LOCAL){
+    dirty = false;
+    b.classList.add('show');
+    b.innerHTML = `<b>Local editing.</b> Tag and field changes save straight to <b>klib_contents.csv</b> on disk. Commit and push when you're done.`;
+    updateExportBtn();
+    return;
+  }
+  const changed = Object.keys(overrides).length;  // any key with an override
+  dirty = changed > 0;
+  if(dirty){
+    b.classList.add('show');
+    b.innerHTML = `<b>${changed}</b> component${changed>1?'s have':' has'} local edits not yet in the repo. Use <b>Export CSV</b> to save them, commit the file, and push.`;
+  } else b.classList.remove('show');
+  updateExportBtn();
+}
+
+// brief toast confirming a disk save
+let flashTimer=null;
+function flash(msg, isErr){
+  let t=el('toast');
+  if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
+  t.textContent=msg; t.className = isErr?'toast err show':'toast show';
+  clearTimeout(flashTimer);
+  flashTimer=setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+function buildLibChips(){
+  const libs=[...new Set(ALL.map(c=>c.library).filter(Boolean))].sort();
+  const box=el('libChips'); box.innerHTML='';
+  libs.forEach(lib=>{
+    const b=document.createElement('button');
+    b.className='chip'; b.textContent=lib; b.setAttribute('aria-pressed','false');
+    b.onclick=()=>{ state.lib = state.lib===lib?null:lib;
+      [...box.children].forEach(c=>c.setAttribute('aria-pressed', c.textContent===state.lib?'true':'false'));
+      render(); };
+    box.appendChild(b);
+  });
+}
+
+function buildTagChips(){
+  // count effective tags across all components
+  const counts={};
+  ALL.forEach(c=>tagsOf(c).forEach(t=>{const n=normTag(t);counts[n]=(counts[n]||0)+1}));
+  const tags=Object.keys(counts).sort();
+  const box=el('tagChips'); box.innerHTML='';
+  tags.forEach(t=>{
+    const b=document.createElement('button');
+    b.className='tagchip'; b.setAttribute('aria-pressed', state.tags.has(t)?'true':'false');
+    b.innerHTML=`${esc(t)} <span class="n">${counts[t]}</span>`;
+    b.onclick=()=>{ state.tags.has(t)?state.tags.delete(t):state.tags.add(t);
+      b.setAttribute('aria-pressed', state.tags.has(t)?'true':'false');
+      el('tagClear').style.display = state.tags.size?'inline':'none';
+      render(); };
+    box.appendChild(b);
+  });
+  el('tagbar').style.display = tags.length?'flex':'none';
+}
+
+function current(){
+  let list = state.q ? fuse.search(state.q).map(r=>r.item) : ALL.slice();
+  if(state.lib)          list = list.filter(c=>c.library===state.lib);
+  if(state.onlyMissing)  list = list.filter(isMissing);
+  if(state.hideObsolete) list = list.filter(c=>!truthy(c.obsolete));
+  if(state.tags.size){
+    list = list.filter(c=>{
+      const ct = new Set(tagsOf(c).map(normTag));
+      return [...state.tags].every(t=>ct.has(t));   // AND logic
+    });
+  }
+  if(!state.q) list.sort((a,b)=>(a.library||'').localeCompare(b.library)||(a.name||'').localeCompare(b.name));
+  return list;
+}
+
+function metaRow(k,v,opts={}){
+  if(opts.link&&v) return `<div class="row"><span class="k">${k}</span><a class="v" href="${esc(v)}" target="_blank" rel="noopener">${esc(opts.linkText||v)}</a></div>`;
+  const missing=!v;
+  return `<div class="row"><span class="k">${k}</span><span class="v${missing?' missing':''}">${missing?'—':esc(v)}</span></div>`;
+}
+
+function datasheetCell(c){
+  const url = c.datasheet;                    // web link from KiCad symbol
+  const file = valOf(c,'datasheet_file');     // local pdf filename
+  const parts = [];
+  if(url) parts.push(`<a href="${esc(url)}" target="_blank" rel="noopener">web ↗</a>`);
+  if(file){
+    // Local PDF lives in ../datasheets/ ; from a root-served page that's datasheets/<file>.
+    // In local mode we only link if the server reported the file present.
+    const present = !LOCAL || LOCAL_SHEETS.has(file);
+    if(present)
+      parts.push(`<a href="datasheets/${encodeURIComponent(file)}" target="_blank" rel="noopener" title="${esc(file)}">PDF ↗</a>`);
+    else
+      parts.push(`<span class="v missing" title="not found in datasheets/">${esc(file)} (missing)</span>`);
+  }
+  const inner = parts.length ? parts.join(' <span class="sep">·</span> ') : '<span class="v missing">—</span>';
+  return `<div class="row"><span class="k">Datasheet</span><span class="v">${inner}</span></div>`;
+}
+
+// Compact single-line renderer for the simple view.
+function simpleDatasheet(c){
+  const url = c.datasheet, file = valOf(c,'datasheet_file');
+  const out=[];
+  if(url) out.push(`<a href="${esc(url)}" target="_blank" rel="noopener" title="web datasheet">web</a>`);
+  if(file){
+    const present = !LOCAL || LOCAL_SHEETS.has(file);
+    if(present) out.push(`<a href="datasheets/${encodeURIComponent(file)}" target="_blank" rel="noopener" title="${esc(file)}">pdf</a>`);
+    else out.push(`<span class="missing" title="not in datasheets/">pdf?</span>`);
+  }
+  return out.join('<span class="sep">·</span>');
+}
+function row(c){
+  const obs=truthy(valOf(c,'obsolete'));
+  const ds=simpleDatasheet(c);
+  const fp=c.footprint ? c.footprint.split(':').pop() : '';
+  return `
+    <div class="srow${obs?' obsolete':''}" data-key="${esc(c.key)}">
+      ${obs?'<span class="sdot" title="obsolete"></span>':'<span class="sdot blank"></span>'}
+      <span class="sname">${highlight(c.name,state.q)}</span>
+      ${state.groupBy?'':(c.library?`<span class="slib">${esc(c.library)}</span>`:'')}
+      <span class="sfp" title="footprint">${esc(fp)}</span>
+      <span class="sds">${ds}</span>
+      <button class="edit-btn sedit" data-key="${esc(c.key)}" title="Edit fields">Edit</button>
+    </div>`;
+}
+
+function card(c){
+  const obs=truthy(valOf(c,'obsolete'));
+  const tags=tagsOf(c);
+  const tagHtml = tags.map(t=>
+    `<span class="ctag" data-key="${esc(c.key)}" data-tag="${esc(t)}">
+       <span class="lbl">${esc(t)}</span><span class="x" title="remove">×</span>
+     </span>`).join('');
+  return `
+    <div class="card${obs?' obsolete':''}" data-key="${esc(c.key)}">
+      <div class="card-top">
+        <h3>${highlight(c.name,state.q)}</h3>
+        ${c.library?`<span class="lib">${esc(c.library)}</span>`:''}
+        ${obs?`<span class="badge-obs">Obsolete</span>`:''}
+        <button class="edit-btn" data-key="${esc(c.key)}" title="Edit fields">Edit</button>
+      </div>
+      ${c.description?`<p class="desc">${highlight(c.description,state.q)}</p>`:''}
+      <div class="cardtags">
+        ${tagHtml}
+        <button class="addtag" data-key="${esc(c.key)}">+ tag</button>
+      </div>
+      <div class="meta">
+        ${metaRow('Footprint',c.footprint)}
+        ${metaRow('3D model',c.step_model)}
+        ${datasheetCell(c)}
+        ${metaRow('Vendor',valOf(c,'vendor'))}
+        ${metaRow('Order code',valOf(c,'order_code'))}
+        ${metaRow('Keywords',c.keywords)}
+      </div>
+    </div>`;
+}
+
+// Build the inline edit form for a card
+function editForm(c){
+  const f = (label,field,ph='') =>
+    `<label class="ef"><span>${label}</span>
+       <input data-field="${field}" value="${esc(valOf(c,field))}" placeholder="${ph}" autocomplete="off"></label>`;
+  return `
+    <div class="editform" data-key="${esc(c.key)}">
+      <div class="ef-grid">
+        ${f('Vendor','vendor','e.g. Mouser')}
+        ${f('Order code','order_code','e.g. 511-STM32…')}
+        ${f('Datasheet file','datasheet_file','e.g. STM32F103.pdf')}
+        <label class="ef"><span>Obsolete</span>
+          <select data-field="obsolete">
+            <option value=""${truthy(valOf(c,'obsolete'))?'':' selected'}>no</option>
+            <option value="yes"${truthy(valOf(c,'obsolete'))?' selected':''}>yes</option>
+          </select>
+        </label>
+      </div>
+      <div class="ef-actions">
+        <button class="ef-save">Save</button>
+        <button class="ef-cancel">Cancel</button>
+        <span class="ef-hint">${LOCAL?'saves to klib_contents.csv':'saved locally · export to commit'}</span>
+      </div>
+    </div>`;
+}
+
+function render(){
+  const list=current();
+  buildTagChips();
+  const dot = dirty ? '<span class="dirty-dot" title="unsaved local edits">●</span>' : '';
+  const exportBtn = LOCAL ? '' :
+    `<button class="export" id="exportBtn">${dirty?dot+' ':''}Export CSV</button>`;
+  el('count').innerHTML =
+    `<span><b>${list.length}</b> of ${ALL.length} components</span>${exportBtn}`;
+
+  const view = state.simple ? row : card;
+  if(!list.length){
+    el('results').innerHTML = `<div class="empty">No components match.</div>`;
+  } else if(state.groupBy){
+    // group into { library: [components...] }, libraries alphabetical
+    const groups={};
+    list.forEach(c=>{ (groups[c.library||'(no library)'] ||= []).push(c); });
+    el('results').innerHTML = Object.keys(groups).sort().map(lib=>
+      `<div class="libgroup${state.simple?' simple':''}">
+         <div class="libhead"><span class="libname">${esc(lib)}</span><span class="libcount">${groups[lib].length}</span></div>
+         ${groups[lib].map(view).join('')}
+       </div>`).join('');
+  } else {
+    el('results').innerHTML = `<div class="${state.simple?'slist':''}">${list.map(view).join('')}</div>`;
+  }
+  if(!LOCAL){ el('exportBtn').onclick = exportCsv; updateExportBtn(); }
+}
+function updateExportBtn(){ const b=el('exportBtn'); if(b) b.disabled = !dirty || LOCAL; }
+
+// ---- persistence shared by tag edits and field edits
+function persist(){
+  if(LOCAL){
+    saveToDisk()
+      .then(()=>flash('Saved to klib_contents.csv'))
+      .catch(e=>flash('⚠ ' + e.message, true));
+  } else {
+    store.set(overrides);
+    reconcileBanner();
+  }
+}
+
+// ---- tag editing
+function setTags(key, tags){
+  const uniq=[...new Set(tags.map(t=>t.trim()).filter(Boolean))];
+  const c = ALL.find(x=>x.key===key);
+  const o = overrides[key] || (overrides[key] = {});
+  if(c && uniq.join(';') === parseTags(c.tags).join(';')) delete o.tags;
+  else o.tags = uniq.join(';');
+  if(Object.keys(o).length===0) delete overrides[key];
+  persist();
+}
+function addTagTo(key,raw){
+  const t=raw.trim(); if(!t) return;
+  const cur=tagsOf(ALL.find(x=>x.key===key)).slice();
+  if(!cur.map(normTag).includes(normTag(t))) cur.push(t);
+  setTags(key,cur);
+  render();
+}
+function removeTagFrom(key,tag){
+  const cur=tagsOf(ALL.find(x=>x.key===key)).filter(t=>normTag(t)!==normTag(tag));
+  setTags(key,cur);
+  render();
+}
+
+// ---- field editing (vendor, order_code, obsolete, datasheet_file)
+function commitEdits(key, values){
+  Object.entries(values).forEach(([f,v]) => setOverride(key, f, (v||'').trim()));
+  persist();
+  render();
+}
+
+// click handling (delegated) for add/remove tag + edit form
+el('results').addEventListener('click', e=>{
+  const x=e.target.closest('.ctag .x');
+  if(x){ const c=x.closest('.ctag'); removeTagFrom(c.dataset.key,c.dataset.tag); return; }
+
+  // open edit form (works for both .card and .srow)
+  const editBtn=e.target.closest('.edit-btn');
+  if(editBtn){
+    const host=editBtn.closest('.card, .srow');
+    if(host.querySelector('.editform')) return;   // already open
+    const c=ALL.find(x=>x.key===editBtn.dataset.key);
+    host.insertAdjacentHTML('beforeend', editForm(c));
+    host.classList.add('editing');
+    const inp=host.querySelector('.editform input'); if(inp) inp.focus();
+    return;
+  }
+  // save edit form
+  const save=e.target.closest('.ef-save');
+  if(save){
+    const form=save.closest('.editform');
+    const values={};
+    form.querySelectorAll('[data-field]').forEach(i=>values[i.dataset.field]=i.value);
+    commitEdits(form.dataset.key, values);
+    return;
+  }
+  // cancel edit form
+  const cancel=e.target.closest('.ef-cancel');
+  if(cancel){ render(); return; }
+
+  const add=e.target.closest('.addtag');
+  if(add){
+    const key=add.dataset.key;
+    const inp=document.createElement('input');
+    inp.className='taginput'; inp.placeholder='tag then Enter'; 
+    add.replaceWith(inp); inp.focus();
+    const commit=()=>{ const v=inp.value; if(v.trim()) addTagTo(key,v); else render(); };
+    inp.addEventListener('keydown',ev=>{
+      if(ev.key==='Enter'){ev.preventDefault();commit();}
+      else if(ev.key===','){ev.preventDefault();commit();}   // comma also commits
+      else if(ev.key==='Escape'){render();}
+    });
+    inp.addEventListener('blur', commit);
+  }
+});
+// Enter saves the edit form
+el('results').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && e.target.closest('.editform') && e.target.tagName==='INPUT'){
+    e.preventDefault();
+    const form=e.target.closest('.editform');
+    const values={};
+    form.querySelectorAll('[data-field]').forEach(i=>values[i.dataset.field]=i.value);
+    commitEdits(form.dataset.key, values);
+  }
+});
+
+function exportCsv(){
+  if(!dirty) return;
+  const cols=['key','name','library','description','keywords','footprint','step_model','datasheet','datasheet_file','vendor','order_code','obsolete','tags'];
+  const rows=ALL.map(c=>{
+    const r={...c};
+    const o=overrides[c.key];
+    if(o){
+      if(o.tags!==undefined) r.tags=o.tags;
+      ['vendor','order_code','obsolete','datasheet_file'].forEach(f=>{ if(o[f]!==undefined) r[f]=o[f]; });
+    }
+    const out={}; cols.forEach(k=>out[k]=r[k]!==undefined?r[k]:''); return out;
+  });
+  const csv=Papa.unparse({fields:cols, data:rows});
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='klib_contents.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// filters / shortcuts
+el('q').addEventListener('input', e=>{state.q=e.target.value;render()});
+el('tglSimple').addEventListener('click', e=>{state.simple=!state.simple;e.target.setAttribute('aria-pressed',state.simple);render()});
+el('tglGroup').addEventListener('click', e=>{state.groupBy=!state.groupBy;e.target.setAttribute('aria-pressed',state.groupBy);render()});
+el('tglMissing').addEventListener('click', e=>{state.onlyMissing=!state.onlyMissing;e.target.setAttribute('aria-pressed',state.onlyMissing);render()});
+el('tglObsolete').addEventListener('click', e=>{state.hideObsolete=!state.hideObsolete;e.target.setAttribute('aria-pressed',state.hideObsolete);render()});
+el('tagClear').addEventListener('click', ()=>{state.tags.clear();el('tagClear').style.display='none';render()});
+document.addEventListener('keydown', e=>{
+  if(e.key==='/'&&document.activeElement!==el('q')&&!/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)){e.preventDefault();el('q').focus()}
+  if(e.key==='Escape'&&document.activeElement===el('q')){el('q').value='';state.q='';render();el('q').blur()}
+});
+
+load();
+</script>
+</body>
+</html>

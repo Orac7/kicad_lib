@@ -1,6 +1,6 @@
 # Component library tooling — lives in <library>/management_scripts/
 #
-#   make scan     — scan KiCad symbol libs (one level up), sync ../klib_contents.csv
+#   make update     — scan KiCad symbol libs (one level up), sync ../klib_contents.csv
 #   make serve    — serve the search page locally with live tag editing to disk
 #   make check    — list components still missing datasheet / order code
 #   make deps     — install the Python dependency (kiutils)
@@ -17,9 +17,9 @@ HERE := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 PY   ?= python3
 PORT ?= 8000
 
-.PHONY: scan serve check deps install-hooks
+.PHONY: update serve check deps install-hooks
 
-scan:
+update:
 	$(PY) "$(HERE)scan_lib.py"
 
 # Tag edits in the browser save straight into ../klib_contents.csv on disk.

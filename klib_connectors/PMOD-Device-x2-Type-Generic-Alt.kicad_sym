@@ -32,7 +32,7 @@
 				)
 			)
 		)
-		(property "Footprint" "pmod-conn_6x2:pmod_pin_array_6x2"
+		(property "Footprint" "klib_connectors:pmod_pin_array_6x2"
 			(at 2.54 -2.794 0)
 			(show_name no)
 			(do_not_autoplace no)
